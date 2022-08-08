@@ -930,8 +930,6 @@ class Ledger(metaclass=LedgerRegistry):
                              account.id, balance, total_receiving, account.receiving.gap, total_change,
                              account.change.gap, channel_count, len(account.channel_keys), claim_count)
         except Exception as err:
-            if isinstance(err, asyncio.CancelledError):  # TODO: remove when updated to 3.8
-                raise
             log.exception(
                 'Failed to display wallet state, please file issue '
                 'for this bug along with the traceback you see below:')
@@ -955,8 +953,6 @@ class Ledger(metaclass=LedgerRegistry):
             try:
                 resolved, _, _, _ = await self.claim_search([], claim_ids=claim_ids)
             except Exception as err:
-                if isinstance(err, asyncio.CancelledError):  # TODO: remove when updated to 3.8
-                    raise
                 log.exception("Resolve failed while looking up purchased claim ids:")
                 resolved = []
             lookup = {claim.claim_id: claim for claim in resolved}
@@ -1037,8 +1033,6 @@ class Ledger(metaclass=LedgerRegistry):
         try:
             resolve_results, _, _, _ = await self.claim_search([], claim_ids=claim_ids)
         except Exception as err:
-            if isinstance(err, asyncio.CancelledError):  # TODO: remove when updated to 3.8
-                raise
             log.exception("Resolve failed while looking up collection claim ids:")
             return []
         claims = []

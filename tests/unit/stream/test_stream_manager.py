@@ -174,7 +174,7 @@ class TestStreamManager(BlobExchangeTestBase):
                 await self.file_manager.download_from_uri(self.uri, self.exchange_rate_manager)
         else:
             await self.file_manager.download_from_uri(self.uri, self.exchange_rate_manager)
-        await asyncio.sleep(0, loop=self.loop)
+        await asyncio.sleep(0)
         self.assertTrue(checked_analytics_event)
 
     async def test_time_to_first_bytes(self):
@@ -317,7 +317,7 @@ class TestStreamManager(BlobExchangeTestBase):
         stream.downloader.node = self.stream_manager.node
         await stream.save_file()
         await stream.finished_writing.wait()
-        await asyncio.sleep(0, loop=self.loop)
+        await asyncio.sleep(0)
         self.assertTrue(stream.finished)
         self.assertFalse(stream.running)
         self.assertTrue(os.path.isfile(os.path.join(self.client_dir, "test_file")))
@@ -340,8 +340,6 @@ class TestStreamManager(BlobExchangeTestBase):
         try:
             await self.file_manager.download_from_uri(self.uri, self.exchange_rate_manager, timeout)
         except Exception as err:
-            if isinstance(err, asyncio.CancelledError):  # TODO: remove when updated to 3.8
-                raise
             error = err
         self.assertEqual(expected_error, type(error))
 
@@ -355,7 +353,7 @@ class TestStreamManager(BlobExchangeTestBase):
 
         self.stream_manager.analytics_manager._post = check_post
         await self._test_download_error_on_start(expected_error, timeout)
-        await asyncio.sleep(0, loop=self.loop)
+        await asyncio.sleep(0)
         self.assertListEqual([expected_error.__name__], received)
 
     async def test_insufficient_funds(self):
@@ -448,7 +446,7 @@ class TestStreamManager(BlobExchangeTestBase):
         self.assertDictEqual(self.stream_manager.streams, {})
         stream = await self.file_manager.download_from_uri(self.uri, self.exchange_rate_manager)
         await stream.finished_writing.wait()
-        await asyncio.sleep(0, loop=self.loop)
+        await asyncio.sleep(0)
         self.stream_manager.stop()
         self.client_blob_manager.stop()
         # partial removal, only sd blob is missing.

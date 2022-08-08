@@ -187,7 +187,7 @@ class BlobExchangeClientProtocol(asyncio.Protocol):
         try:
             self._blob_bytes_received = 0
             self.blob, self.writer = blob, blob.get_blob_writer(self.peer_address, self.peer_port)
-            self._response_fut = asyncio.Future(loop=self.loop)
+            self._response_fut = asyncio.Future()
             return await self._download_blob()
         except OSError:
             # i'm not sure how to fix this race condition - jack
