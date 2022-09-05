@@ -70,10 +70,14 @@ class TorrentHandle:
 
     @property
     def largest_file(self) -> Optional[str]:
-        if not self.torrent_file:
+        if self.torrent_file is None:
             return None
         index = self.largest_file_index
-        return os.path.join(self._base_path, self.torrent_file.at(index).path)
+        return os.path.join(self._base_path, self.torrent_file.file_path(index))
+
+    @property
+    def save_path(self) -> Optional[str]:
+        return self._base_path
 
     @property
     def largest_file_index(self):
@@ -100,15 +104,18 @@ class TorrentHandle:
             if not self.metadata_completed.is_set():
                 self.metadata_completed.set()
                 log.info("Metadata completed for btih:%s - %s", status.info_hash, self.name)
-                self.torrent_file = self._handle.get_torrent_info().files()
+                self.torrent_file = self._handle.torrent_file().files()
                 self._base_path = status.save_path
-            first_piece = self.torrent_file.at(self.largest_file_index).offset
+            first_piece = self.torrent_file.piece_index_at_file(self.largest_file_index)
             if not self.started.is_set():
                 if self._handle.have_piece(first_piece):
                     self.started.set()
                 else:
                     # prioritize it
                     self._handle.set_piece_deadline(first_piece, 100)
+                    prios = self._handle.piece_priorities()
+                    prios[first_piece] = 7
+                    self._handle.prioritize_pieces(prios)
         if not status.is_seeding:
             log.debug('%.2f%% complete (down: %.1f kB/s up: %.1f kB/s peers: %d seeds: %d) %s - %s',
                       status.progress * 100, status.download_rate / 1000, status.upload_rate / 1000,
@@ -157,10 +164,8 @@ class TorrentSession:
     async def bind(self, interface: str = '0.0.0.0', port: int = 10889):
         settings = {
             'listen_interfaces': f"{interface}:{port}",
-            'enable_outgoing_utp': True,
-            'enable_incoming_utp': True,
-            'enable_outgoing_tcp': False,
-            'enable_incoming_tcp': False
+            'enable_upnp': False,
+            'enable_natpmp': False
         }
         self._session = await self._loop.run_in_executor(
             self._executor, libtorrent.session, settings  # pylint: disable=c-extension-no-member
@@ -212,6 +217,9 @@ class TorrentSession:
 
     def full_path(self, btih):
         return self._handles[btih].largest_file
+
+    def save_path(self, btih):
+        return self._handles[btih].save_path
 
     async def add_torrent(self, btih, download_path):
         await self._loop.run_in_executor(
@@ -275,17 +283,16 @@ async def main():
 
     executor = None
     session = TorrentSession(asyncio.get_event_loop(), executor)
-    session2 = TorrentSession(asyncio.get_event_loop(), executor)
-    await session.bind('localhost', port=4040)
-    await session2.bind('localhost', port=4041)
-    btih = await session.add_fake_torrent()
-    session2._session.add_dht_node(('localhost', 4040))
-    await session2.add_torrent(btih, "/tmp/down")
+    await session.bind()
+    await session.add_torrent(btih, os.path.expanduser("~/Downloads"))
     while True:
-        await asyncio.sleep(100)
+        session.full_path(btih)
+        await asyncio.sleep(1)
     await session.pause()
     executor.shutdown()
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)-4s %(name)s:%(lineno)d: %(message)s")
+    log = logging.getLogger(__name__)
     asyncio.run(main())
